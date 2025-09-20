@@ -1,38 +1,43 @@
-import { OpenAI } from "openai";
+import express from "express";
+import cors from "cors";
+import fetch from "node-fetch";
+import dotenv from "dotenv";
 
-export default async function handler(req, res) {
-  // Só aceita POST
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+dotenv.config();
 
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+
+app.post("/predict", async (req, res) => {
   try {
-    // Garantir que o body é JSON e contém "pergunta"
-    const body = req.body;
-    if (!body || !body.pergunta) {
-      return res.status(400).json({ error: "Campo 'pergunta' é obrigatório" });
-    }
+    const { pergunta } = req.body;
+    if (!pergunta) return res.status(400).json({ error: "Campo 'pergunta' obrigatório" });
 
-    // Criar cliente da OpenAI
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({ error: "OPENAI_API_KEY não definida" });
-    }
-
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: pergunta }]
+      })
     });
 
-    // Chamada para a OpenAI
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: body.pergunta }]
-    });
-
-    const respostaIA = response.choices?.[0]?.message?.content || "Sem resposta";
-    return res.status(200).json({ resposta: respostaIA });
+    const data = await response.json();
+    const respostaIA = data.choices?.[0]?.message?.content || "Sem resposta";
+    res.json({ resposta: respostaIA });
 
   } catch (err) {
-    console.error("Erro na função predict:", err);
-    return res.status(500).json({ error: "Erro interno do servidor" });
+    console.error("Erro:", err);
+    res.status(500).json({ error: "Erro interno do servidor" });
   }
-}
+});
+
+app.get("/", (req, res) => res.send("Servidor de IA rodando no Railway!"));
+
+app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
