@@ -12,10 +12,10 @@ app.use(cors());
 app.use(express.json());
 
 app.post("/predict", async (req, res) => {
-  try {
-    const { pergunta } = req.body;
-    if (!pergunta) return res.status(400).json({ error: "Campo 'pergunta' obrigatório" });
+  const pergunta = req.body.pergunta;
+  if (!pergunta) return res.status(400).json({ error: "Campo 'pergunta' obrigatório" });
 
+  try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -29,15 +29,13 @@ app.post("/predict", async (req, res) => {
     });
 
     const data = await response.json();
-    const respostaIA = data.choices?.[0]?.message?.content || "Sem resposta";
-    res.json({ resposta: respostaIA });
-
+    res.json({ resposta: data.choices?.[0]?.message?.content || "Sem resposta" });
   } catch (err) {
-    console.error("Erro:", err);
+    console.error(err);
     res.status(500).json({ error: "Erro interno do servidor" });
   }
 });
 
-app.get("/", (req, res) => res.send("Servidor de IA rodando no Railway!"));
+app.get("/", (req, res) => res.send("Servidor de IA rodando!"));
 
 app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
