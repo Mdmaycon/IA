@@ -1,10 +1,18 @@
-import { OpenAI } from "openai";
+import express from "express";
+import cors from "cors";
+import fetch from "node-fetch"; // necessário para chamadas HTTP
+import dotenv from "dotenv";
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+dotenv.config();
 
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+
+// Endpoint da API
+app.post("/predict", async (req, res) => {
   try {
     const { pergunta } = req.body;
 
@@ -12,21 +20,34 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Pergunta é obrigatória" });
     }
 
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: pergunta }]
+      })
     });
 
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: pergunta }]
-    });
+    const data = await response.json();
+    const respostaIA = data.choices[0].message.content;
 
-    const respostaIA = response.choices[0].message.content;
-
-    res.status(200).json({ resposta: respostaIA });
+    res.json({ resposta: respostaIA });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Erro interno do servidor" });
   }
-}
+});
+
+// Teste simples
+app.get("/", (req, res) => {
+  res.send("Servidor de IA rodando com Express!");
+});
+
+app.listen(port, () => {
+  console.log(`Servidor rodando na porta ${port}`);
+});
